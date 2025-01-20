@@ -18,7 +18,7 @@
 ### Per-Image Folders
 📁 Each image folder contains:
 - **Packer Templates (`builder.pkr.hcl`)**: Defines the build process for that image.
-- **HTTP Directory (`http/`)**: Contains kickstart files for automated installation.
+- **HTTP Directory (`http/`)**: Contains kickstart or Cloud-init file for automated installation.
 
 ### Secrets File (`secret.json`)
 🔒 Contains sensitive variables like API tokens (excluded from version control).
