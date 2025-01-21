@@ -2,13 +2,6 @@
 
 Automate the creation and management of virtual machines and Kubernetes clusters on Proxmox VE using Terraform.
 
-☖️ **Table of Contents**
-1. [Overview](#overview-)
-2. [Requirements](#requirements-)
-3. [Quick Start](#quick-start-)
-4. [Modules (Highlighted Below)](#modules-highlighted-below-)
-
-
 ## 1. OVERVIEW 📚
 
 **Goal:** Streamline VM and Kubernetes deployment in a Proxmox environment.
@@ -34,7 +27,13 @@ Automate the creation and management of virtual machines and Kubernetes clusters
    cd your-repo
    ```
 
-2. **Configure variables** in `variable.tf` or a `.tfvars` file.
+2. **Configure variables** in `terraform.tfvars`:
+   ```hcl
+   # Required Provider Configuration
+   proxmox_provider  = "bpg/proxmox"
+   proxmox_endpoint  = "https://your-proxmox:8006/api2/json"
+   ansible_path      = "/path/to/your/ansible/inventory"
+   ```
 
 3. **Initialize Terraform:**
    ```bash
