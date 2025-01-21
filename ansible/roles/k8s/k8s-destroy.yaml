@@ -1,0 +1,21 @@
+---
+- name: Forcefully reset Kubernetes cluster configuration
+  ansible.builtin.command:
+    cmd: kubeadm reset -f
+  register: kubeadm_reset_result
+
+- name: Remove leftover Kubernetes directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  with_items:
+    - /etc/kubernetes
+    - /var/lib/etcd
+    - /var/lib/kubelet
+    - /var/lib/dockershim
+    - /var/lib/cni
+    - /etc/cni/net.d
+
+- name: Flush iptables (main table)
+  ansible.builtin.command:
+    cmd: iptables -F

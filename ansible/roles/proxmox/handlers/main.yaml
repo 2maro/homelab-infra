@@ -1,0 +1,9 @@
+# roles/proxmox/handlers/main.yml
+---
+# Handler to restart networking
+- name: Restart networking
+  ansible.builtin.command: systemctl restart networking
+
+# Handler to update GRUB configuration
+- name: update-grub
+  ansible.builtin.command: update-grub

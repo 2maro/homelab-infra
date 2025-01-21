@@ -1,0 +1,17 @@
+# Loopback interface
+auto lo
+iface lo inet loopback
+
+{% for bridge in network_bridges %}
+# {{ bridge.comments }}
+auto {{ bridge.name }}
+iface {{ bridge.name }} inet static
+    address {{ bridge.address }}
+    netmask {{ bridge.netmask }}
+    {% if bridge.gateway is defined %}
+    gateway {{ bridge.gateway }}
+    {% endif %}
+    bridge_ports {{ bridge.interface }}
+    bridge_stp off
+    bridge_fd 0
+{% endfor %}

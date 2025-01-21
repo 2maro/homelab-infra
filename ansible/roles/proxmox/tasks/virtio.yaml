@@ -1,0 +1,37 @@
+- name: Ensure ISO directory exists
+  ansible.builtin.file:
+    path: "{{ virtio_iso_path }}"
+    state: directory
+    mode: '0755'
+
+- name: Download latest VirtIO drivers
+  ansible.builtin.get_url:
+    url: "{{ virtio_download_url }}"
+    dest: "{{ virtio_iso_path }}/virtio-win.iso"
+    mode: '0644'
+    force: no
+  register: download_result
+
+- name: Verify ISO exists and is readable
+  ansible.builtin.stat:
+    path: "{{ virtio_iso_path }}/virtio-win.iso"
+  register: virtio_iso
+
+- name: Display VirtIO status
+  ansible.builtin.debug:
+    msg: |
+      VirtIO Driver Status:
+      - ISO Location: {{ virtio_iso_path }}/virtio-win.iso
+      - Size: {{ (virtio_iso.stat.size|default(0) / 1024 / 1024) | round(2) }} MB
+      - Last Modified: {{ virtio_iso.stat.mtime|default('N/A') }}
+      - Status: {{ 'Successfully installed' if virtio_iso.stat.exists else 'Installation failed' }}
+      {% if download_result.changed %}
+      - Action: Fresh download completed
+      {% else %}
+      - Action: Using existing download
+      {% endif %}
+
+- name: Fail if VirtIO installation unsuccessful
+  ansible.builtin.fail:
+    msg: "Failed to verify VirtIO drivers installation"
+  when: not virtio_iso.stat.exists

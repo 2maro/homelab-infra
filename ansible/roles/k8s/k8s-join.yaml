@@ -1,0 +1,12 @@
+---
+- name: Join additional master nodes
+  ansible.builtin.command:
+    cmd: "{{ hostvars[groups['control_plane'][0]]['cp_join_cmd'].stdout }} --control-plane --apiserver-advertise-address={{ ansible_host }}"
+  when:
+    - inventory_hostname in groups['control_plane']
+    - inventory_hostname != groups['control_plane'][0]
+
+- name: Join worker nodes to cluster
+  ansible.builtin.command:
+    cmd: "{{ hostvars[groups['control_plane'][0]]['worker_join_cmd'].stdout }}"
+  when: inventory_hostname in groups['workers']

@@ -1,0 +1,119 @@
+- name: Gather CPU vendor info
+  set_fact:
+    cpu_vendor_str: "{{ ansible_processor[0] | default('UnknownCPU') }}"
+
+- name: Determine IOMMU setting based on CPU vendor
+  set_fact:
+    iommu_setting: >-
+      {% if 'Intel' in cpu_vendor_str or 'GenuineIntel' in cpu_vendor_str %}
+      intel_iommu=on
+      {% elif 'AMD' in cpu_vendor_str or 'AuthenticAMD' in cpu_vendor_str %}
+      amd_iommu=on
+      {% else %}
+      intel_iommu=on
+      {% endif %}
+
+- name: Debug CPU and IOMMU
+  debug:
+    msg:
+      - "CPU vendor string: {{ cpu_vendor_str }}"
+      - "IOMMU setting: {{ iommu_setting }}"
+
+- name: Detect GPU PCI address and vendor details
+  shell: "lspci -nn | grep -E 'VGA|3D|Display'"
+  register: gpu_info
+  changed_when: false
+  failed_when: gpu_info.rc != 0
+
+- name: Debug GPU detection output
+  debug:
+    msg:
+      - "Raw GPU info lines: {{ gpu_info.stdout_lines }}"
+      - "Raw GPU command output: {{ gpu_info.stdout }}"
+      - "GPU detection return code: {{ gpu_info.rc }}"
+
+- name: Fail if no GPU is detected
+  fail:
+    msg: "No GPU (VGA/3D/Display) device found; cannot proceed with passthrough."
+  when: gpu_info.stdout_lines | length == 0
+
+- name: Extract GPU details
+  set_fact:
+    gpu_details: "{{ parsed_gpu }}"
+  vars:
+    parsed_gpu: "{{ gpu_info.stdout_lines | map('regex_search', '([0-9a-f.:]+).*\\[([0-9a-f]{4}:[0-9a-f]{4})\\]') | list }}"
+  # ^ This produces a list of lists, e.g. [ [ '01:00.0', '10de:1db6' ], ... ]
+
+- name: Parse GPU PCI address and vendor ID
+  set_fact:
+    gpu_pci_address: "{{ gpu_details[0][0] if gpu_details|length > 0 else '' }}"
+    gpu_vendor_id:   "{{ gpu_details[0][1] if gpu_details|length > 0 else '' }}"
+
+- name: Validate GPU parsing
+  fail:
+    msg: "No GPU matched the regex. Raw output: {{ gpu_info.stdout_lines }}"
+  when: gpu_pci_address == '' or gpu_vendor_id == ''
+
+- name: Debug final GPU parse
+  debug:
+    msg:
+      - "Detected GPU PCI Address: {{ gpu_pci_address }}"
+      - "Detected GPU Vendor ID: {{ gpu_vendor_id }}"
+      - "Using IOMMU Setting: {{ iommu_setting }}"
+
+- name: Update GRUB configuration with correct IOMMU
+  lineinfile:
+    path: "{{ grub_file }}"
+    regexp: '^GRUB_CMDLINE_LINUX_DEFAULT='
+    line: >-
+      GRUB_CMDLINE_LINUX_DEFAULT="quiet {{ iommu_setting }} iommu=pt pcie_acs_override=downstream,multifunction
+      nofb nomodeset video=vesafb:off,efifb:off"
+  notify: update-grub
+
+- name: Insert VFIO modules into /etc/modules
+  blockinfile:
+    path: "{{ modules_file }}"
+    block: |
+      vfio
+      vfio_iommu_type1
+      vfio_pci
+      vfio_virqfd
+
+- name: Add unsafe interrupts and KVM ignore_msrs
+  block:
+    - name: Add unsafe interrupts
+      lineinfile:
+        path: "{{ iommu_file }}"
+        line: "options vfio_iommu_type1 allow_unsafe_interrupts=1"
+        create: yes
+
+    - name: Add KVM ignore_msrs
+      lineinfile:
+        path: "{{ kvm_file }}"
+        line: "options kvm ignore_msrs=1"
+        create: yes
+
+- name: Blacklist GPU drivers if NVIDIA
+  blockinfile:
+    path: "{{ blacklist_file }}"
+    block: |
+      blacklist nouveau
+      blacklist nvidia
+      blacklist nvidia_uvm
+      blacklist nvidia_modeset
+      blacklist nvidia_drm
+  when: "'10de' in gpu_vendor_id.lower()"  # NVIDIA Vendor ID
+
+- name: Write VFIO config for the detected GPU
+  copy:
+    dest: "{{ vfio_file }}"
+    content: |
+      options vfio-pci ids={{ gpu_vendor_id }} disable_vga=1
+
+- name: Update initramfs
+  command:
+    cmd: update-initramfs -u
+
+- name: Reboot to apply changes
+  reboot:
+    msg: "Rebooting to apply GPU passthrough configurations."

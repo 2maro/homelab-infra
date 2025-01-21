@@ -1,0 +1,111 @@
+---
+- name: Gather distribution codename (e.g., bullseye, bookworm)
+  ansible.builtin.command: "awk -F'=' '/^VERSION_CODENAME=/{ print $NF }' /etc/os-release"
+  register: distro_codename
+  changed_when: false
+
+- name: Debug distribution information
+  ansible.builtin.debug:
+    msg: "Distribution codename: {{ distro_codename.stdout }}"
+
+- name: Update Debian repository sources
+  ansible.builtin.blockinfile:
+    path: /etc/apt/sources.list
+    create: true
+    backup: true
+    block: |
+      deb http://deb.debian.org/debian {{ distro_codename.stdout }} main contrib non-free non-free-firmware
+      deb http://deb.debian.org/debian {{ distro_codename.stdout }}-updates main contrib non-free non-free-firmware
+      deb http://security.debian.org/debian-security {{ distro_codename.stdout }}-security main contrib non-free-firmware
+  when: fix_debian_sources | default(true)
+
+- name: Disable 'pve-enterprise' repository
+  ansible.builtin.lineinfile:
+    path: /etc/apt/sources.list.d/pve-enterprise.list
+    line: "# deb https://enterprise.proxmox.com/debian/pve {{ distro_codename.stdout }} pve-enterprise"
+    create: true
+  when: disable_enterprise_repo | default(true)
+
+- name: Enable 'pve-no-subscription' repository
+  ansible.builtin.lineinfile:
+    path: /etc/apt/sources.list.d/pve-no-subscription.list
+    line: "deb http://download.proxmox.com/debian/pve {{ distro_codename.stdout }} pve-no-subscription"
+    create: true
+  when: enable_no_subscription_repo | default(true)
+
+- name: Add 'pve-test' repository (disabled)
+  ansible.builtin.lineinfile:
+    path: /etc/apt/sources.list.d/pve-test.list
+    line: "# deb http://download.proxmox.com/debian/pve {{ distro_codename.stdout }} pvetest"
+    create: true
+  when: add_test_repo | default(true)
+
+- name: Create directory for apt configuration
+  ansible.builtin.file:
+    path: /etc/apt/apt.conf.d
+    state: directory
+    mode: '0755'
+
+- name: Remove old subscription nag script if it exists
+  ansible.builtin.file:
+    path: /etc/apt/apt.conf.d/no-nag-script
+    state: absent
+  when: disable_subscription_nag | default(true)
+
+- name: Ensure apt hook script to remove subscription nag is installed
+  ansible.builtin.copy:
+    dest: /etc/apt/apt.conf.d/no-nag-script
+    content: |
+      DPkg::Post-Invoke {
+        "dpkg -V proxmox-widget-toolkit | grep -q '/proxmoxlib\.js$'; if [ $? -eq 1 ]; then echo 'Removing subscription nag from UI...'; sed -i '/data\.status.*{/{s/!//;s/active/NoMoreNagging/}' /usr/share/javascript/proxmox-widget-toolkit/proxmoxlib.js; fi";
+      };
+    mode: '0644'
+  when: disable_subscription_nag | default(true)
+
+- name: Remove proxmox-widget-toolkit package
+  ansible.builtin.apt:
+    name: proxmox-widget-toolkit
+    state: absent
+    purge:  true
+  when: disable_subscription_nag | default(true)
+
+- name: Install proxmox-widget-toolkit package
+  ansible.builtin.apt:
+    name: proxmox-widget-toolkit
+    state: present
+    force: true
+    update_cache: true
+  when: disable_subscription_nag | default(true)
+
+- name: Create backup of proxmoxlib.js
+  ansible.builtin.copy:
+    src: /usr/share/javascript/proxmox-widget-toolkit/proxmoxlib.js
+    dest: /usr/share/javascript/proxmox-widget-toolkit/proxmoxlib.js.bak
+    remote_src: true
+  when: disable_subscription_nag | default(true)
+
+- name: Remove exclamation mark from status check
+  ansible.builtin.replace:
+    path: /usr/share/javascript/proxmox-widget-toolkit/proxmoxlib.js
+    regexp: 'data\.status\s*!==\s*["\']active["\']'
+    replace: 'data.status === "NoMoreNagging"'
+  when: disable_subscription_nag | default(true)
+
+- name: Verify proxmoxlib.js modification
+  ansible.builtin.command: 
+    cmd: "grep NoMoreNagging /usr/share/javascript/proxmox-widget-toolkit/proxmoxlib.js"
+  register: verify_nag
+  changed_when: false
+  failed_when: verify_nag.rc != 0
+  when: disable_subscription_nag | default(true)
+
+- name: Update package cache and upgrade all packages
+  ansible.builtin.apt:
+    upgrade: dist
+    force_apt_get: yes
+  when: do_update | default(true)
+
+- name: Reboot the system if requested
+  ansible.builtin.reboot:
+    msg: "Rebooting the system as requested."
+  when: do_reboot | default(false)

@@ -1,0 +1,43 @@
+---
+- name: Run kubeadm init on first master
+  ansible.builtin.command:
+    cmd: >
+      kubeadm init
+      --pod-network-cidr={{ pod_network_cidr }}
+      --cri-socket=unix:///run/containerd/containerd.sock
+  register: kubeadm_init_result
+  when: inventory_hostname == groups['control_plane'][0]
+
+- name: Create control-plane join command
+  ansible.builtin.command:
+    cmd: kubeadm token create --print-join-command --certificate-key $(kubeadm init phase upload-certs --upload-certs | tail -1)
+  register: cp_join_cmd
+  when: inventory_hostname == groups['control_plane'][0] and kubeadm_init_result is succeeded
+
+- name: Create worker join command
+  ansible.builtin.command:
+    cmd: kubeadm token create --print-join-command
+  register: worker_join_cmd
+  when: inventory_hostname == groups['control_plane'][0] and kubeadm_init_result is succeeded
+
+- name: Ensure ~/.kube directory exists
+  ansible.builtin.file:
+    path: "{{ lookup('env', 'HOME') }}/.kube"
+    state: directory
+    mode: '0700'
+  delegate_to: localhost
+  run_once: true
+
+- name: Copy kubeconfig from first master
+  ansible.builtin.fetch:
+    src: /etc/kubernetes/admin.conf
+    dest: "{{ lookup('env', 'HOME') }}/.kube/config"
+    flat: true
+  when: inventory_hostname == groups['control_plane'][0]
+
+- name: Set kubeconfig permissions
+  ansible.builtin.file:
+    path: "{{ lookup('env', 'HOME') }}/.kube/config"
+    mode: '0600'
+  delegate_to: localhost
+  run_once: true
