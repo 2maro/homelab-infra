@@ -30,7 +30,7 @@ Automate the creation and management of virtual machines and Kubernetes clusters
 2. **Configure variables** in `terraform.tfvars`:
    ```hcl
    # Required Provider Configuration
-   proxmox_provider  = "bpg/proxmox"
+   proxmox_apitoken  = "bpg/proxmox"
    proxmox_endpoint  = "https://your-proxmox:8006/api2/json"
    ansible_path      = "/path/to/your/ansible/inventory"
    ```
