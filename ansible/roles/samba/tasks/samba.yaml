@@ -1,0 +1,6 @@
+---
+- name: Install samba package
+
+- name: Create samba shared dir's
+
+- name: 

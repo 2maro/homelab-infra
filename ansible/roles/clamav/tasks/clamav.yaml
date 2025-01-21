@@ -1,0 +1,7 @@
+---
+- name: install all needed packages
+
+- name: Add group and user
+
+- name: Set SELinux for clamAV
+

@@ -1,0 +1,10 @@
+# NFS Client Variables
+nfs_mounts:
+  - mountpoint: "/srv/nfs/monitoring"
+    nfs_server: "{{ hostvars['nfs-server']['ansible_host'] }}"
+    nfs_path: "/srv/nfs/monitoring"
+    mount_options: "rw,sync"
+  - mountpoint: "/srv/nfs/others"
+    nfs_server: "{{ hostvars['nfs-server']['ansible_host'] }}"
+    nfs_path: "/srv/nfs/others"
+    mount_options: "rw,sync"

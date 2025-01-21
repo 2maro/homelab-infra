@@ -1,0 +1,64 @@
+---
+- name: Install NFS packages
+  ansible.builtin.package:
+    name: nfs-utils
+    state: present
+
+- name: Stop all NFS-related services for clean restart
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    state: stopped
+  loop:
+    - nfs-server
+    - rpcbind
+  ignore_errors: true
+
+- name: Start services in correct order
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    state: started
+    enabled: true
+  loop:
+    - rpcbind      # Start rpcbind first
+    - nfs-server   # Then start nfs-server (which includes mountd)
+  register: nfs_services
+  retries: 3
+  delay: 5
+  until: nfs_services is success
+
+
+- name: Create NFS export dir's
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: directory
+    owner: nobody
+    group: nobody
+    mode: '0775'
+    recurse: true
+  loop: "{{ nfs_directories }}"
+
+- name: Configure NFS exports
+  ansible.builtin.template:
+    src: nfs_export.j2
+    dest: /etc/exports
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: Apply NFS exports
+  ansible.builtin.command:
+    cmd: "exportfs -rav"
+  changed_when: true
+  notify: "Reload NFS exports"
+
+- name: Configure firewall for NFS services
+  ansible.builtin.firewalld:
+    service: "{{ item }}"
+    permanent: true
+    immediate: true
+    state: enabled
+  loop:
+    - nfs
+    - mountd
+    - rpc-bind
+  notify: Reload Firewall

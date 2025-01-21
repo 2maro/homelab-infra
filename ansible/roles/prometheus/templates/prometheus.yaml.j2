@@ -1,0 +1,42 @@
+---
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  scrape_timeout: 10s
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          # - alertmanager:9093
+
+rule_files:
+  # - "first_rules.yaml"
+  # - "second_rules.yaml"
+
+scrape_configs:
+  # Prometheus self-monitoring
+  - job_name: "prometheus"
+    static_configs:
+      - targets: ["localhost:9090"]
+
+  # Node Exporter metrics for all servers except monitoring
+  - job_name: "node_exporter"
+    static_configs:
+      - targets:
+        {% for host in groups['all'] %}
+        - "{{ hostvars[host]['ansible_host'] | default(hostvars[host]['ansible_default_ipv4']['address']) }}:9100"
+        {% endfor %}
+
+
+  # Monitoring server's own Node Exporter
+  - job_name: "monitoring_node"
+    static_configs:
+      - targets: ["localhost:9100"]
+
+  # File-based service discovery
+  - job_name: 'file_sd'
+    file_sd_configs:
+      - files:
+        - /etc/prometheus/file_sd/*.yaml
+        refresh_interval: 1m

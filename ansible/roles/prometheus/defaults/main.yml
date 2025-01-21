@@ -1,0 +1,8 @@
+# Prometheus Configuration
+prometheus_version: "2.45.0"
+prometheus_download_url: "https://github.com/prometheus/prometheus/releases/download/v{{ prometheus_version }}/prometheus-{{ prometheus_version }}.linux-amd64.tar.gz"
+prometheus_retention_time: "15d"
+prometheus_scrape_interval: "15s"
+prometheus_evaluation_interval: "15s"
+prometheus_alertmanager_targets: ['localhost:9093']
+prometheus_additional_scrape_configs: []

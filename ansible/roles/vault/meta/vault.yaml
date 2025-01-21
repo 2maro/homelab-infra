@@ -1,0 +1,34 @@
+---
+- name: Add HashiCorp repository
+  ansible.builtin.yum_repository:
+    name: hashicorp
+    description: HashiCorp Stable - $basearch
+    baseurl: https://rpm.releases.hashicorp.com/RHEL/$releasever/$basearch/stable
+    gpgkey: https://rpm.releases.hashicorp.com/gpg
+    gpgcheck: true
+
+- name: Install Vault
+  ansible.builtin.package:
+    name: vault
+    state: present
+
+- name: Open vault ports
+  ansible.builtin.firewalld:
+    port: "{{ item }}"
+    permanet: true
+    state: enabled
+  loop:
+    - 8200/tcp
+    - 8201/tcp
+  when: setup_vault | default(false)
+  notify: reload firewall
+
+
+- name: Configure Vault
+  ansible.builtin.template:
+    src: templates/vault.hcl.j2
+    dest: /etc/vault.d/vault.hcl
+    mode: '0640'
+    owner: vault
+    group: vault
+  notify: restart vault

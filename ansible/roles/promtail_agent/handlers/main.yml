@@ -1,0 +1,4 @@
+- name: Restart promtail
+  ansible.builtin.systemd:
+    name: promtail
+    state: restarted

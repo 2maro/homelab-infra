@@ -1,0 +1,65 @@
+---
+- name: Common configuration tasks
+  ansible.builtin.include_tasks: 
+    file: common.yaml
+    apply:
+      tags:
+        - common
+  tags:
+    - common
+
+- name: NFS server configuration tasks
+  ansible.builtin.include_tasks: nfs_server.yaml
+  tags:
+    - nfs
+    - storage
+  when: inventory_hostname == 'nfs-server'
+
+- name: NFS client configuration tasks
+  ansible.builtin.include_tasks: nfs_client.yaml
+  tags:
+    - nfs
+    - storage
+  when: inventory_hostname not in groups['k8s'] and inventory_hostname not in groups['storage']
+
+- name: Prometheus setup tasks
+  ansible.builtin.include_tasks: prometheus.yaml
+  tags:
+    - monitoring
+    - prometheus
+  when: inventory_hostname == 'monitoring-server'
+
+- name: Loki setup tasks
+  ansible.builtin.include_tasks: loki.yaml
+  tags:
+    - monitoring
+    - loki
+  when: inventory_hostname == 'monitoring-server'
+
+- name: Grafana setup tasks
+  ansible.builtin.include_tasks: grafana.yaml
+  tags:
+    - monitoring
+    - grafana
+  when: inventory_hostname == 'monitoring-server'
+
+- name: Node Exporter setup tasks
+  ansible.builtin.include_tasks: node_exporter.yaml
+  tags:
+    - monitoring
+    - node_exporter
+  when: inventory_hostname not in groups['k8s']
+
+- name: Promtail setup tasks
+  ansible.builtin.include_tasks: promtail-agent.yaml
+  tags:
+    - logging
+    - promtail
+  when: inventory_hostname not in groups['k8s'] 
+
+#- name: Vault setup tasks
+ # ansible.builtin.include_tasks: vault.yaml
+  #tags:
+   # - security
+    #- vault
+  #when: inventory_hostname == 'ldap-server'

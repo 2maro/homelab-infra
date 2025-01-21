@@ -1,0 +1,15 @@
+---
+
+
+
+
+
+
+
+
+
+- name: Reload Firewall
+  ansible.builtin.systemd:
+    name: firewalld
+    state: reloaded
+

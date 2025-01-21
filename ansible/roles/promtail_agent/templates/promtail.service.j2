@@ -1,0 +1,14 @@
+
+[Unit]
+Description=Grafana Promtail service
+After=network.target
+
+[Service]
+Type=simple
+User={{ promtail_user }}
+ExecStart={{ promtail_install_dir }}/promtail-linux-amd64 -config.file {{ promtail_install_dir }}/promtail-local-config.yaml
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

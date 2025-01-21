@@ -1,0 +1,26 @@
+server:
+  http_listen_port: 9080
+  grpc_listen_port: 0
+
+positions:
+  filename: /tmp/positions.yaml
+
+clients:
+  - url: http://{{ hostvars[groups['monitoring'][0]]['ansible_host'] | default(hostvars[groups['monitoring'][0]]['ansible_default_ipv4']['address']) }}:{{ loki_port }}/loki/api/v1/push
+
+scrape_configs:
+  - job_name: system
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: varlogs
+          host: {{ inventory_hostname }}
+          __path__: /var/log/{messages,secure,audit/audit.log,*.log} 
+
+  - job_name: syslog
+    syslog:
+      listen_address: 0.0.0.0:{{ syslog_port }}
+      labels:
+        job: syslog
+        host: {{ inventory_hostname }}

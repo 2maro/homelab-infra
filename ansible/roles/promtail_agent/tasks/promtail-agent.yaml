@@ -1,0 +1,53 @@
+- name: Create Promtail user
+  ansible.builtin.user:
+    name: "{{ promtail_user }}"
+    shell: /sbin/nologin
+    home: "{{ promtail_install_dir }}"
+    state: present
+
+- name: Create Promtail directory
+  ansible.builtin.file:
+    path: "{{ promtail_install_dir }}"
+    state: directory
+    owner: "{{ promtail_user }}"
+    group: "{{ promtail_user }}"
+    mode: '0755'
+
+- name: Download and extract Promtail
+  ansible.builtin.unarchive:
+    src: "https://github.com/grafana/loki/releases/download/v{{ promtail_version }}/promtail-linux-amd64.zip"
+    dest: "{{ promtail_install_dir }}"
+    remote_src: yes
+    owner: "{{ promtail_user }}"
+    group: "{{ promtail_user }}"
+
+- name: Configure firewall for Promtail
+  ansible.builtin.firewalld:
+    port: "{{ syslog_port }}/tcp"
+    permanent: true
+    state: enabled
+  notify: Reload Firewall
+
+- name: Create Promtail config
+  ansible.builtin.template:
+    src: promtail-config.yaml.j2
+    dest: "{{ promtail_install_dir }}/promtail-local-config.yaml"
+    owner: "{{ promtail_user }}"
+    group: "{{ promtail_user }}"
+    mode: '0644'
+  notify: Restart promtail
+
+- name: Create Promtail service
+  ansible.builtin.template:
+    src: promtail.service.j2
+    dest: /etc/systemd/system/promtail.service
+    mode: '0644'
+  notify: Restart promtail
+
+- name: Start Promtail
+  ansible.builtin.systemd:
+    name: promtail
+    state: started
+    enabled: true
+    daemon_reload: true
+

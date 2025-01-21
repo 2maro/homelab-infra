@@ -1,0 +1,61 @@
+- name: Create Loki system user
+  ansible.builtin.user:
+    name: "{{ loki_user }}"
+    shell: /sbin/nologin
+    home: "{{ loki_install_dir }}"
+    state: present
+
+- name: Create initial directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ loki_user }}"
+    group: "{{ loki_user }}"
+    mode: '0755'
+    recurse: true
+  loop:
+    - "{{ loki_install_dir }}"
+    - "{{ loki_data_dir }}"
+    - "{{ loki_data_dir }}/chunks"
+    - "{{ loki_data_dir }}/compactor"
+    - "{{ loki_data_dir }}/wal"
+    - "{{ loki_data_dir }}/boltdb-shipper-active"
+    - "{{ loki_data_dir }}/boltdb-shipper-cache"
+
+- name: Download and extract Loki
+  ansible.builtin.unarchive:
+    src: "https://github.com/grafana/loki/releases/download/v{{ loki_version }}/loki-linux-amd64.zip"
+    dest: "{{ loki_install_dir }}"
+    remote_src: true
+    owner: "{{ loki_user }}"
+    group: "{{ loki_user }}"
+    mode: '0755'
+
+- name: Create Loki config
+  ansible.builtin.template:
+    src: loki-config.yaml.j2
+    dest: "{{ loki_install_dir }}/loki-local-config.yaml"
+    owner: "{{ loki_user }}"
+    group: "{{ loki_user }}"
+    mode: '0644'
+
+- name: Create Loki service
+  ansible.builtin.template:
+    src: loki.service.j2
+    dest: /etc/systemd/system/loki.service
+    mode: '0644'
+
+- name: Ensure directory permissions
+  ansible.builtin.file:
+    path: "{{ loki_data_dir }}"
+    owner: "{{ loki_user }}"
+    group: "{{ loki_user }}"
+    mode: '0755'
+    recurse: true
+
+- name: Start Loki
+  ansible.builtin.systemd:
+    name: loki
+    state: restarted
+    enabled: true
+    daemon_reload: true

@@ -1,0 +1,79 @@
+---
+- name: Create Prometheus system group
+  ansible.builtin.group:
+    name: prometheus
+    system: true
+
+- name: Create Prometheus system user
+  ansible.builtin.user:
+    name: prometheus
+    system: true
+    group: prometheus
+    shell: /sbin/nologin
+    home: /var/lib/prometheus
+    create_home: false
+
+- name: Create Prometheus dir's
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: prometheus
+    group: prometheus
+    mode: '0755'
+  loop:
+    - /etc/prometheus
+    - /var/lib/prometheus
+    - /etc/prometheus/rules
+    - /etc/prometheus/file_sd
+
+- name: Download and extract Prometheus
+  ansible.builtin.unarchive:
+    src: "{{ prometheus_download_url }}"
+    dest: /tmp
+    remote_src: true
+    mode: '0755'
+    owner: prometheus
+    group: prometheus
+  register: prometheus_archive
+
+- name: Copy Prometheus binaries
+  ansible.builtin.copy:
+    src: "/tmp/prometheus-{{ prometheus_version }}.linux-amd64/{{ item }}"
+    dest: "/usr/local/bin/{{ item }}"
+    remote_src: true
+    mode: '0755'
+    owner: prometheus
+    group: prometheus
+  loop:
+    - prometheus
+    - promtool
+
+- name: Create Prometheus configuration
+  ansible.builtin.template:
+    src: prometheus.yaml.j2
+    dest: /etc/prometheus/prometheus.yaml
+    owner: prometheus
+    group: prometheus
+    mode: '0644'
+  notify: Restart prometheus
+
+- name: Create Prometheus service file
+  ansible.builtin.template:
+    src: prometheus.service.j2
+    dest: /etc/systemd/system/prometheus.service
+    mode: '0644'
+  notify: Restart prometheus
+
+- name: Enable and start Prometheus
+  ansible.builtin.systemd:
+    name: prometheus
+    state: started
+    enabled: true
+
+- name: Allow Node Exporter traffic on monitoring server
+  ansible.builtin.firewalld:
+    port: 9100/tcp
+    permanent: true
+    state: enabled
+    zone: public
+  notify: Reload Firewall

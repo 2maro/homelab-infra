@@ -1,0 +1,33 @@
+---
+- name: Install NFS client utils
+  ansible.builtin.package:
+    name:
+      - nfs-utils
+      - nfs4-acl-tools
+
+- name: Create NFS mount dir's
+  ansible.builtin.file:
+    path: "{{ item.mountpoint }}"
+    state: directory
+    mode: '0755'
+  loop: "{{ nfs_mounts }}"
+
+- name: Check if NFS server is reachable
+  ansible.builtin.command:
+    cmd: "showmount -e {{ item.nfs_server }}"
+  loop: "{{ nfs_mounts }}"
+  changed_when: false
+
+- name: Mount NFS shares
+  ansible.builtin.mount:
+    path: "{{ item.mountpoint }}"
+    src: "{{ item.nfs_server }}:{{ item.nfs_path }}"
+    fstype: nfs
+    opts: "{{ item.mount_options | default('defaults') }}"
+    state: mounted
+  loop: "{{ nfs_mounts }}"
+  register: mount_result
+  retries: 3
+  delay: 5
+  until: mount_result is success
+  ignore_errors: true

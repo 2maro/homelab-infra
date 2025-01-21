@@ -1,0 +1,13 @@
+# NFS Server Variables
+nfs_directories:
+  - path: "/srv/nfs/monitoring"
+  - path: "/srv/nfs/others"
+
+export_rules:
+  - path: "/srv/nfs/monitoring"
+    clients: "*"
+    options: "rw,sync,no_subtree_check,no_root_squash,fsid=0"
+  - path: "/srv/nfs/others"
+    clients: "*"
+    options: "rw,sync,no_subtree_check,no_root_squash,fsid=1"
+

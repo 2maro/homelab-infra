@@ -1,0 +1,15 @@
+[Unit]
+Description=Node Exporter
+After=network.target
+
+[Service]
+Type=simple
+User=node_exporter
+Group=node_exporter
+ExecStart=/usr/local/bin/node_exporter \
+    --collector.filesystem.ignored-mount-points=^/(sys|proc|dev|run|var/lib/docker)($|/)
+
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

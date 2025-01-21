@@ -1,0 +1,8 @@
+
+# Managed by Ansible
+127.0.0.1   localhost
+::1         localhost
+
+{% for host in groups['terraform'] %}
+{{ hostvars[host]['ansible_host'] }}   {{ host }}
+{% endfor %}

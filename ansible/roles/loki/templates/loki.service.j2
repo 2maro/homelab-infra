@@ -1,0 +1,20 @@
+[Unit]
+Description=Loki log aggregation system
+After=network.target
+
+[Service]
+Type=simple
+User={{ loki_user }}
+Group={{ loki_user }}
+WorkingDirectory={{ loki_data_dir }}
+ExecStartPre=/bin/bash -c '/usr/bin/systemctl stop loki || true'
+ExecStartPre=/bin/bash -c '/usr/bin/mkdir -p {{ loki_data_dir }}/compactor'
+ExecStartPre=/bin/bash -c '/usr/bin/chown -R {{ loki_user }}:{{ loki_user }} {{ loki_data_dir }}'
+ExecStartPre=/bin/bash -c '/usr/bin/chmod -R 755 {{ loki_data_dir }}'
+ExecStart={{ loki_install_dir }}/loki-linux-amd64 -config.file={{ loki_install_dir }}/loki-local-config.yaml
+Restart=always
+RestartSec=10
+TimeoutStopSec=20
+
+[Install]
+WantedBy=multi-user.target

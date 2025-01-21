@@ -1,0 +1,19 @@
+---
+- name: Populate /etc/hosts file using template
+  ansible.builtin.template:
+    src: templates/hosts.j2
+    dest: /etc/hosts
+    owner: root
+    group: root
+    mode: '0644'
+
+
+- name: set system hostname
+  ansible.builtin.hostname:
+    name: "{{ inventory_hostname }}"
+  
+
+- name: Put SELinux in permissive mode, logging actions that would be blocked.
+  ansible.posix.selinux:
+    policy: targeted
+    state: permissive

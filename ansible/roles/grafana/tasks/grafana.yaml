@@ -1,0 +1,70 @@
+---
+- name: Add Grafana repository
+  ansible.builtin.yum_repository:
+    name: grafana
+    description: Grafana repository
+    baseurl: https://packages.grafana.com/oss/rpm
+    gpgkey: https://packages.grafana.com/gpg.key
+    gpgcheck: true
+
+- name: Install Grafana
+  ansible.builtin.package:
+    name: grafana
+    state: present
+
+- name: Create Grafana directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: '0755'
+    owner: grafana
+    group: grafana
+  loop:
+    - /etc/grafana/provisioning/datasources
+    - /etc/grafana/provisioning/dashboards
+    - /var/lib/grafana/dashboards
+    - /var/lib/grafana
+    - /var/log/grafana
+
+- name: Set proper permissions recursively
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    recurse: yes
+    owner: grafana
+    group: grafana
+  loop:
+    - /var/lib/grafana
+    - /var/log/grafana
+    - /etc/grafana
+
+- name: Configure Grafana
+  ansible.builtin.template:
+    src: grafana.ini.j2
+    dest: /etc/grafana/grafana.ini
+    mode: '0644'
+    owner: grafana
+    group: grafana
+
+- name: Configure datasource
+  ansible.builtin.template:
+    src: grafana-datasource.yaml.j2
+    dest: /etc/grafana/provisioning/datasources/automatic.yml 
+    mode: '0644'
+    owner: grafana
+    group: grafana
+  notify: Restart grafana-server
+
+- name: Open Grafana Ports
+  ansible.builtin.firewalld:
+    port: 3000/tcp
+    permanent: true
+    state: enabled
+  notify: Reload Firewall
+
+- name: Enable and start Grafana
+  ansible.builtin.systemd:
+    name: grafana-server
+    state: started
+    enabled: true
+    daemon_reload: true

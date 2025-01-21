@@ -1,0 +1,7 @@
+# Loki Configuration
+loki_version: "2.8.0"
+loki_user: loki
+loki_install_dir: /opt/loki
+loki_data_dir: /var/lib/loki
+loki_port: 3100
+
