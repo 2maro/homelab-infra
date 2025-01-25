@@ -2,3 +2,8 @@
   ansible.builtin.systemd:
     name: grafana-server
     state: restarted
+  
+- name: Reload Firewall
+  ansible.builtin.systemd:
+    name: firewalld
+    state: restarted

@@ -2,3 +2,8 @@
   ansible.builtin.command:
     cmd: "exportfs -ra"
   listen: "reload nfs exports"
+
+- name: Reload Firewall
+  ansible.builtin.systemd:
+    name: firewalld
+    state: restart

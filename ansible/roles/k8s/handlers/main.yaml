@@ -1,15 +1,15 @@
 ---
 - name: Reload firewall
-  ansible.builtin.service:
+  ansible.builtin.systemd:
     name: firewalld
     state: reloaded
 
 - name: Restart containerd
-  ansible.builtin.service:
+  ansible.builtin.systemd:
     name: containerd
     state: restarted
 
 - name: Restart kubelet
-  ansible.builtin.service:
+  ansible.builtin.systemd:
     name: kubelet
     state: restarted
