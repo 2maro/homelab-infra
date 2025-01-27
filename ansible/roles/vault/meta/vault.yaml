@@ -12,6 +12,27 @@
     name: vault
     state: present
 
+- name: Create data directory
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: vault
+    group: vault
+    mode: '0750'
+  loop:
+    - "{{ vault_storage_path }}"
+    - /etc/vault.d/tls
+    - /etc/vault.d/k8s
+
+- name: Configure Vault
+  ansible.builtin.template:
+    src: templates/vault.hcl.j2
+    dest: /etc/vault.d/vault.hcl
+    owner: vault
+    group: vault
+    mode: '0640'
+  notify: Restart vault
+
 - name: Open vault ports
   ansible.builtin.firewalld:
     port: "{{ item }}"
@@ -20,15 +41,10 @@
   loop:
     - 8200/tcp
     - 8201/tcp
-  when: setup_vault | default(false)
-  notify: reload firewall
+  notify: Reload firewall
 
-
-- name: Configure Vault
-  ansible.builtin.template:
-    src: templates/vault.hcl.j2
-    dest: /etc/vault.d/vault.hcl
-    mode: '0640'
-    owner: vault
-    group: vault
-  notify: restart vault
+- name: Start and enable Vault
+  ansible.builtin.systemd:
+    name: vault
+    state: started
+    enabled: true

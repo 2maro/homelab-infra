@@ -2,3 +2,8 @@
   ansible.builtin.systemd:
     name: vault
     state: restarted
+
+- name: Restart firewall
+  ansible.builtin.systemd:
+    name: firewalld
+    state: restarted

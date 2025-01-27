@@ -4,8 +4,7 @@
   become: true
   gather_facts: true
   vars:
-    disable_subscription_nag=true 
+    disable_subscription_nag=true
     do_reboot=true
   roles:
     - proxmox
-

@@ -1,0 +1,22 @@
+ui = vault_ui_enable
+
+listener "tcp" {
+    address = "0.0.0.0:8200"
+    tls_disable = true
+}
+
+## dont write to swap
+disabled_mlock = true
+
+
+auth "kubernetes" {
+  path = "kubernetes"
+
+  # kubernetes API server endpoint
+  kubernetes_host = 
+
+  kubernetes_host = "{{ k8s_host | default('https://kubernetes.default.svc:443') }}"
+  kubernetes_ca_cert = "{{ k8s_ca_cert | default('/etc/vault/k8s/ca.crt') }}"
+
+  Disbale_local_ca_jwt = true
+}

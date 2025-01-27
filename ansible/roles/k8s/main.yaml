@@ -1,0 +1,14 @@
+
+- name: install requirements for k8s 
+  ansible.builtin.include: installer.yaml
+  when: inventory_hostname in groups['k8s_test']
+
+- name: install container runtime
+  ansible.builtin.include: containerd.yaml
+  when: inventory_hostname in groups['k8s_test]
+
+- name: setup kubeadm
+  ansible.builtin.include: k8s-init-master.yaml
+
+- name: join  nodes
+  ansible.builtin.include: k8s-join.yaml
