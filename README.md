@@ -121,22 +121,4 @@ Feel free to use, modify, and distribute this work as permitted under the licens
 
 ---
 
-## Contributing 🤝
-
-Contributions are welcome! Please open an issue or submit a pull request for any improvements, bug fixes, or enhancements.
-
-1. Fork the repository 🍴
-2. Create a new branch (`git checkout -b feature/my-feature`) 🌿
-3. Commit changes (`git commit -m "Add some feature"`) 📝
-4. Push to the branch (`git push origin feature/my-feature`) 🚀
-5. Create a Pull Request 📩
-
----
-
-## Contact 📧
-
-For any questions, suggestions, or feedback, feel free to reach out via GitHub issues or contact the repository owner directly.
-
----
-
 > **Note** ⚠️: Always ensure you safeguard credentials (e.g., `.json` files with tokens or passwords) by excluding them from version control (e.g., add them to your `.gitignore`). You can also use HashiCorp Vault, Ansible Vault, or other secrets managers for more robust protection.
