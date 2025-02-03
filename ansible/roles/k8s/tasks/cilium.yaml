@@ -43,4 +43,4 @@
     KUBECONFIG: /etc/kubernetes/admin.conf
   notify:
     - Restart containerd
-    - Restart containerd
+    - Restart kubelet
