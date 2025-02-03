@@ -1,0 +1,8 @@
+---
+- name: setup k8s cluster
+  hosts: k8s
+  gather_facts: true
+  vars:
+    pod_network_cidr: "10.244.0.0/16"
+  roles:
+    - k8s
