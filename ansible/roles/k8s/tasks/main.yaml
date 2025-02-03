@@ -1,0 +1,37 @@
+---
+- name: Install requirements for k8s
+  ansible.builtin.include_tasks: prerequisites.yaml
+  when: destroy is not defined or not destroy
+
+- name: Install k8s packages 
+  ansible.builtin.include_tasks: installer.yaml
+  when: destroy is not defined or not destroy
+
+- name: Install container runtime
+  ansible.builtin.include_tasks: containerd.yaml
+  when: destroy is not defined or not destroy
+
+- name: Setup kubeadm
+  ansible.builtin.include_tasks: k8s-init-master.yaml
+  when: 
+    - destroy is not defined or not destroy
+    - inventory_hostname == groups['prod_control_plane'][0]
+
+- name: Join nodes
+  ansible.builtin.include_tasks: k8s-join.yaml
+  when: destroy is not defined or not destroy
+
+- name: Setup Cilium
+  ansible.builtin.include_tasks: cilium.yaml
+  when: 
+    - destroy is not defined or not destroy
+    - inventory_hostname == groups['prod_control_plane'][0]
+
+- name: Fetch config 
+  ansible.builtin.include_tasks: getconfig.yaml
+  when: 
+    - destroy is not defined or not destroy
+
+- name: Destroy Kubernetes cluster
+  ansible.builtin.include_tasks: k8s-destroy.yaml
+  when: destroy | default(false) | bool

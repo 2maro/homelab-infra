@@ -1,0 +1,9 @@
+# Kubernetes version and repository settings
+kubernetes_version: "1.29.0"
+kubernetes_repo_url: "https://pkgs.k8s.io/core:/stable:/v1.29/rpm/"
+kubernetes_gpg_key: "https://pkgs.k8s.io/core:/stable:/v1.29/rpm/repodata/repomd.xml.key"
+
+# Containerd settings
+containerd_repo_url: "https://download.docker.com/linux/centos/$releasever/$basearch/stable"
+containerd_repo_gpg_key: "https://download.docker.com/linux/centos/gpg"
+containerd_version: "1.7.2"

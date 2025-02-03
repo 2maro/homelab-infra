@@ -1,0 +1,22 @@
+---
+- name: Ensure ~/.kube directory exists
+  ansible.builtin.file:
+    path: "{{ lookup('env', 'HOME') }}/.kube"
+    state: directory
+    mode: '0700'
+  delegate_to: localhost
+  run_once: true
+
+- name: Copy kubeconfig from first master
+  ansible.builtin.fetch:
+    src: /etc/kubernetes/admin.conf
+    dest: "{{ lookup('env', 'HOME') }}/.kube/config"
+    flat: true
+  when: inventory_hostname == groups['prod_control_plane'][0]
+
+- name: Set kubeconfig permissions
+  ansible.builtin.file:
+    path: "{{ lookup('env', 'HOME') }}/.kube/config"
+    mode: '0600'
+  delegate_to: localhost
+  run_once: true

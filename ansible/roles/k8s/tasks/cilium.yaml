@@ -1,0 +1,46 @@
+- name: Download Cilium CLI
+  ansible.builtin.get_url:
+    url: https://github.com/cilium/cilium-cli/releases/latest/download/cilium-linux-amd64.tar.gz
+    dest: /tmp/cilium-linux-amd64.tar.gz
+    mode: '0644'
+
+- name: Create temporary directory for Cilium CLI
+  ansible.builtin.file:
+    path: /tmp/cilium-cli
+    state: directory
+    mode: '0755'
+
+- name: Extract Cilium CLI
+  ansible.builtin.unarchive:
+    src: /tmp/cilium-linux-amd64.tar.gz
+    dest: /tmp/cilium-cli
+    remote_src: true
+
+- name: Install Cilium CLI binary
+  ansible.builtin.copy:
+    src: /tmp/cilium-cli/cilium
+    dest: /usr/local/bin/cilium
+    mode: '0755'
+    remote_src: true
+
+- name: Clean up temporary files
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - /tmp/cilium-linux-amd64.tar.gz
+    - /tmp/cilium-cli
+
+- name: Install Cilium in the cluster
+  ansible.builtin.command:
+    cmd: >-
+      cilium install 
+      --set kubeProxyReplacement=true
+      --set ipam.mode=kubernetes
+      --set nativeRoutingCIDR="{{ pod_network_cidr }}"
+      --set gatewayAPI.enabled=true
+  environment:
+    KUBECONFIG: /etc/kubernetes/admin.conf
+  notify:
+    - Restart containerd
+    - Restart containerd

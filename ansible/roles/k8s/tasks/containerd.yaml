@@ -1,0 +1,76 @@
+---
+- name: Add containerd repository
+  ansible.builtin.copy:
+    dest: /etc/yum.repos.d/docker-ce.repo
+    content: |
+      [docker-ce-stable]
+      name=Docker CE Stable - $basearch
+      baseurl=https://download.docker.com/linux/centos/$releasever/$basearch/stable
+      enabled=1
+      gpgcheck=1
+      gpgkey=https://download.docker.com/linux/centos/gpg
+    mode: '0644'
+    owner: root
+    group: root
+
+- name: Install containerd
+  ansible.builtin.package:
+    name: containerd.io
+    state: present
+  notify: Restart containerd
+
+- name: Backup containerd configuration
+  ansible.builtin.command:
+    cmd: cp /etc/containerd/config.toml /etc/containerd/config.toml.bak
+  args:
+    creates: /etc/containerd/config.toml.bak
+  register: backup_result
+  changed_when: backup_result.rc == 0
+  failed_when: backup_result.rc not in [0, 1]
+
+- name: Replace containerd configuration with new configuration
+  ansible.builtin.copy:
+    dest: /etc/containerd/config.toml
+    content: |
+      version = 2
+      disabled_plugins = []
+
+      [plugins."io.containerd.grpc.v1.cri"]
+        sandbox_image = "registry.k8s.io/pause:3.9"
+      [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc]
+        runtime_type = "io.containerd.runc.v2"
+        [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc.options]
+          SystemdCgroup = true
+      [plugins."io.containerd.grpc.v1.cri".registry]
+        config_path = "/etc/containerd/certs.d"
+    mode: '0644'
+    owner: root
+    group: root
+  notify: Restart containerd
+
+- name: Ensure correct permissions on containerd socket directory
+  ansible.builtin.file:
+    path: /run/containerd
+    state: directory
+    mode: '0755'
+    owner: root
+    group: root
+
+- name: Start and enable containerd service
+  ansible.builtin.service:
+    name: containerd
+    state: started
+    enabled: true
+  notify: Restart containerd
+
+- name: Configure critctl
+  ansible.builtin.copy:
+    dest: /etc/crictl.yaml
+    content: |
+      runtime-endpoint: unix:///run/containerd/containerd.sock
+      image-endpoint: unix:///run/containerd/containerd.sock
+      timeout: 2
+      debug: false
+      pull-image-on-create: false
+    mode: '0644'
+
