@@ -1,6 +1,6 @@
 ---
 
-packages:
+common_packages:
   - curl
   - epel-release
   - yum-utils

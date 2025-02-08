@@ -8,10 +8,9 @@
     mode: '0644'
 
 
-- name: set system hostname
+- name: Set system hostname
   ansible.builtin.hostname:
     name: "{{ inventory_hostname }}"
-  
 
 - name: Put SELinux in permissive mode, logging actions that would be blocked.
   ansible.posix.selinux:
@@ -22,4 +21,4 @@
   ansible.builtin.package:
     name: "{{ item }}"
     state: present
-  loop: "{{ packages }}"
+  loop: "{{ common_packages }}"
