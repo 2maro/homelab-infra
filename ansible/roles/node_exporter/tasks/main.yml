@@ -1,0 +1,3 @@
+---
+- name: Node_exporter tasks
+  ansible.builtin.import_tasks: node_exporter.yaml
