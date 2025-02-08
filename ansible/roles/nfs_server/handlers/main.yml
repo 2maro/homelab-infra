@@ -1,3 +1,5 @@
+---
+
 - name: Reload NFS exports
   ansible.builtin.command:
     cmd: "exportfs -ra"
@@ -6,4 +8,4 @@
 - name: Reload Firewall
   ansible.builtin.systemd:
     name: firewalld
-    state: restart
+    state: restarted

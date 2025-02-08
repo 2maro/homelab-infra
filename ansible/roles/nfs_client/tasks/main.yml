@@ -1,0 +1,4 @@
+---
+
+- name: nfs_client Setup
+  ansible.builtin.import_tasks: nfs_client.yaml

@@ -1,0 +1,4 @@
+---
+
+- name: nfs_server.yaml
+  ansible.builtin.include_tasks: nfs_server.yaml

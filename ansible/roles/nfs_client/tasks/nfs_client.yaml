@@ -10,12 +10,12 @@
     path: "{{ item.mountpoint }}"
     state: directory
     mode: '0755'
-  loop: "{{ nfs_mounts }}"
+  loop: "{{ nfs_client_mounts }}"
 
 - name: Check if NFS server is reachable
   ansible.builtin.command:
     cmd: "showmount -e {{ item.nfs_server }}"
-  loop: "{{ nfs_mounts }}"
+  loop: "{{ nfs_client_mounts }}"
   changed_when: false
 
 - name: Mount NFS shares
@@ -25,7 +25,7 @@
     fstype: nfs
     opts: "{{ item.mount_options | default('defaults') }}"
     state: mounted
-  loop: "{{ nfs_mounts }}"
+  loop: "{{ nfs_client_mounts }}"
   register: mount_result
   retries: 3
   delay: 5

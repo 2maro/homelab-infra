@@ -2,6 +2,7 @@
 nfs_directories:
   - path: "/srv/nfs/monitoring"
   - path: "/srv/nfs/others"
+  - path: "/srv/nfs/k8s"
 
 export_rules:
   - path: "/srv/nfs/monitoring"
@@ -10,4 +11,6 @@ export_rules:
   - path: "/srv/nfs/others"
     clients: "*"
     options: "rw,sync,no_subtree_check,no_root_squash,fsid=1"
-
+  - path: "/srv/nfs/k8s"
+    clients: "*"
+    options: "rw,sync,no_subtree_check,no_root_squash,fsid=2"
