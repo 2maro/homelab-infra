@@ -1,0 +1,4 @@
+---
+
+- name: Grafana setup
+  ansible.builtin.include_tasks: grafana.yaml

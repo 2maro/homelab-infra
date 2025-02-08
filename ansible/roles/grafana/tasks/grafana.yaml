@@ -30,7 +30,7 @@
   ansible.builtin.file:
     path: "{{ item }}"
     state: directory
-    recurse: yes
+    recurse: true
     owner: grafana
     group: grafana
   loop:
@@ -49,7 +49,7 @@
 - name: Configure datasource
   ansible.builtin.template:
     src: grafana-datasource.yaml.j2
-    dest: /etc/grafana/provisioning/datasources/automatic.yml 
+    dest: /etc/grafana/provisioning/datasources/automatic.yml
     mode: '0644'
     owner: grafana
     group: grafana
