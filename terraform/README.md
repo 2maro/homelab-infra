@@ -21,13 +21,13 @@ Automate the creation and management of virtual machines and Kubernetes clusters
 
 ## 3. QUICK START 🚀
 
-1. **Clone** the repo:
+A. **Clone** the repo:
    ```bash
-   git clone https://github.com/your-org/your-repo.git
+   git clone https://github.com/2maro/homelab-infra.git
    cd your-repo
    ```
 
-2. **Configure variables** in `terraform.tfvars`:
+B. **Configure variables** in `terraform.tfvars`:
    ```hcl
    # Required Provider Configuration
    proxmox_apitoken  = "bpg/proxmox"
@@ -35,19 +35,19 @@ Automate the creation and management of virtual machines and Kubernetes clusters
    ansible_path      = "/path/to/your/ansible/inventory"
    ```
 
-3. **Initialize Terraform:**
+C. **Initialize Terraform:**
    ```bash
    terraform init
    ```
 
-4. **Plan and Apply:**
+D. **Plan and Apply:**
    ```bash
    terraform plan
    terraform apply
    ```
    *(Confirm to provision resources.)*
 
-5. **Destroy resources if needed:**
+E. **Destroy resources if needed:**
    ```bash
    terraform destroy
    ```
@@ -94,7 +94,6 @@ module "standalone_vms" {
 ```
 
 ###  Aggregator 🔎 
-
 - **Location:** `modules/aggregator` 
 - **Purpose:** Gathers and writes inventory data (e.g., for Ansible).
 

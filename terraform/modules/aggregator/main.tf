@@ -6,18 +6,17 @@ terraform {
     }
     proxmox = {
       source  = "bpg/proxmox"
-      version = ">= 0.63"
+      version = ">= 0.73"
     }
   }
 }
 
+
 locals {
+
   has_k8s        = length(var.k8s_clusters) > 0
   has_standalone = length(var.standalone_vms) > 0
   has_other      = length(var.other_clusters) > 0
-
-  vm_host    = try(values(var.standalone_vms)[0].proxmox_host, "prime")
-  vm_host_ip = try(values(var.standalone_vms)[0].ip[0], "192.168.1.3")
 
   standalone_groups = {
     for vm_name, vm in var.standalone_vms : vm_name => {
@@ -28,19 +27,16 @@ locals {
     }
   }
 
+
   template_vars = {
-    k8s_clusters    = var.k8s_clusters
-    standalone_vms  = var.standalone_vms
-    other_clusters  = var.other_clusters
-
-    has_k8s         = local.has_k8s
-    has_standalone  = local.has_standalone
-    has_other       = local.has_other
-
-    vm_host         = local.vm_host
-    vm_host_ip      = local.vm_host_ip
-
+    k8s_clusters      = var.k8s_clusters
+    standalone_vms    = var.standalone_vms
+    other_clusters    = var.other_clusters
+    has_k8s           = local.has_k8s
+    has_standalone    = local.has_standalone
+    has_other         = local.has_other
     standalone_groups = local.standalone_groups
+    proxmox_hosts     = var.proxmox_hosts
   }
 
   inventory_content = join("\n", [

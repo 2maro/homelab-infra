@@ -1,15 +1,12 @@
 [proxmox]
-${vm_host} ansible_host=${vm_host_ip}
-
-%{ if has_standalone ~}
-%{ for tag in distinct(flatten([for vm in values(standalone_vms) : vm.tags])) ~}
-[${tag}]
-%{ for vm in values(standalone_vms) ~}
-%{ if contains(vm.tags, tag) ~}
-${vm.name} ansible_host=${vm.ip[0]} proxmox_host=${vm.proxmox_host}
-%{ endif ~}
+%{ for hostname, ip in proxmox_hosts ~}
+${hostname} ansible_host=${ip}
 %{ endfor ~}
 
+%{ if has_standalone ~}
+[servers]
+%{ for vm in values(standalone_vms) ~}
+${vm.name} ansible_host=${vm.ip[0]} proxmox_host=${vm.proxmox_host}
 %{ endfor ~}
 %{ endif ~}
 
@@ -23,8 +20,4 @@ ${cluster_name}_ha
 %{ endif ~}
 %{ endfor ~}
 %{ endif ~}
-%{ for tag in distinct(flatten([for vm in values(standalone_vms) : vm.tags])) ~}
-%{ if tag != "terraform" ~}
-${tag}
-%{ endif ~}
-%{ endfor ~}
+

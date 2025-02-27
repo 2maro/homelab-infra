@@ -144,6 +144,11 @@ module "aggregator" {
   source         = "./modules/aggregator"
   inventory_path = var.ansible_path
 
+  proxmox_hosts = {
+    (local.common_vars.vm_host) = regex("^https?://([^:/]+)", var.proxmox_endpoint)[0]
+  }
+
+
   k8s_clusters = {
     "prod" = {
       masters  = module.k8s_cluster.master_nodes

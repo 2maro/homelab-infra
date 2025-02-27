@@ -3,6 +3,11 @@ variable "inventory_path" {
   description = "Path where the aggregated Ansible inventory file should be written"
 }
 
+variable "proxmox_hosts" {
+  description = "A map of Proxmox host names to their IP addresses"
+  type        = map(string)
+}
+
 variable "k8s_clusters" {
   description = "A map of Kubernetes clusters"
   type = map(
