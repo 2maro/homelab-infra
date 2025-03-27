@@ -62,10 +62,23 @@ resource "proxmox_virtual_environment_vm" "vmsmithy" {
     type = var.ostype
   }
 
+
   on_boot = var.boot_on
   started = true
 
+  initialization {
+    datastore_id      = var.primary_disk.storage
+    user_data_file_id = "snippets:snippets/shared-cloud-init.yaml"
+    interface         = "ide2"
+    ip_config {
+      ipv4 {
+        address = "dhcp"
+      }
+    }
+  }
+
   lifecycle {
-    ignore_changes = [network_device]
+    ignore_changes = [network_device,
+    initialization]
   }
 }
