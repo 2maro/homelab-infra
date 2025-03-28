@@ -1,0 +1,38 @@
+---
+
+- name: Check if token already exists
+  ansible.builtin.shell: |
+    pveum user token list {{ api_token_user }} | grep -q "{{ api_token_name }}"
+  register: token_exists
+  changed_when: false
+  failed_when: false
+
+- name: Remove existing token if it exists
+  ansible.builtin.shell: |
+    pveum user token remove {{ api_token_user }} {{ api_token_name }}
+  when: token_exists.rc == 0
+  register: token_removed
+
+- name: Generate API token with captured output
+  ansible.builtin.shell: |
+    pveum user token add {{ api_token_user }} {{ api_token_name }} \
+      --comment="{{ api_token_comment }}" \
+      --expire {{ api_token_expiry }} \
+      --privsep=0 \
+      --role {{ api_token_role }} | tee /dev/stderr
+  register: token_output
+
+- name: Extract token information
+  ansible.builtin.set_fact:
+    api_token_id: "{{ api_token_user }}!{{ api_token_name }}"
+    api_token_secret: "{{ token_output.stderr_lines | select('match', '^full.*') | first | regex_replace('^full.*: (\\S+)$', '\\1') }}"
+
+- name: Show API token information
+  ansible.builtin.debug:
+    msg: |
+      API Token created successfully:
+      -----------------------------------------
+      TOKEN ID: {{ api_token_id }}
+      SECRET: {{ api_token_secret }}
+      -----------------------------------------
+      Store this information securely. The token secret can't be retrieved again.

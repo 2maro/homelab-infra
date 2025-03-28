@@ -21,8 +21,6 @@
     mode: '0750'
   loop:
     - "{{ vault_storage_path }}"
-    - /etc/vault.d/tls
-    - /etc/vault.d/k8s
 
 - name: Configure Vault
   ansible.builtin.template:
@@ -36,12 +34,16 @@
 - name: Open vault ports
   ansible.builtin.firewalld:
     port: "{{ item }}"
-    permanet: true
+    permanent: true
     state: enabled
   loop:
+    - 8199/tcp
     - 8200/tcp
-    - 8201/tcp
   notify: Reload firewall
+
+- name: Add VAULT_ADDR to system environment
+  ansible.builtin.shell: |
+    export VAULT_ADDR="http://{{ ansible_host }}:8200"
 
 - name: Start and enable Vault
   ansible.builtin.systemd:

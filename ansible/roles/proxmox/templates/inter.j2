@@ -1,6 +1,26 @@
-# Loopback interface
+# Proxmox network configuration managed by Ansible
+# Do not edit manually
+
 auto lo
 iface lo inet loopback
+
+{% if enable_lacp | default(false) %}
+{% for slave in bond_interfaces[0].slaves %}
+# Physical interface {{ slave }}
+auto {{ slave }}
+iface {{ slave }} inet manual
+    bond-master {{ bond_interfaces[0].name }}
+{% endfor %}
+
+# LACP Bond interface
+auto {{ bond_interfaces[0].name }}
+iface {{ bond_interfaces[0].name }} inet manual
+    bond-slaves {% for slave in bond_interfaces[0].slaves %}{{ slave }} {% endfor %}
+    bond-miimon {{ bond_interfaces[0].bond_miimon | default(100) }}
+    bond-mode {{ bond_interfaces[0].bond_mode | default('802.3ad') }}
+    bond-xmit-hash-policy {{ bond_interfaces[0].bond_xmit_hash_policy | default('layer2+3') }}
+    # {{ bond_interfaces[0].comment | default('LACP Bond') }}
+{% endif %}
 
 {% for bridge in network_bridges %}
 # {{ bridge.comments }}
@@ -8,9 +28,9 @@ auto {{ bridge.name }}
 iface {{ bridge.name }} inet static
     address {{ bridge.address }}
     netmask {{ bridge.netmask }}
-    {% if bridge.gateway is defined %}
+{% if bridge.gateway|length > 0 %}
     gateway {{ bridge.gateway }}
-    {% endif %}
+{% endif %}
     bridge_ports {{ bridge.interface }}
     bridge_stp off
     bridge_fd 0

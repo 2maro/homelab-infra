@@ -19,14 +19,17 @@
     state: present
   notify: Restart containerd
 
-- name: Backup containerd configuration
-  ansible.builtin.command:
-    cmd: cp /etc/containerd/config.toml /etc/containerd/config.toml.bak
-  args:
-    creates: /etc/containerd/config.toml.bak
-  register: backup_result
-  changed_when: backup_result.rc == 0
-  failed_when: backup_result.rc not in [0, 1]
+- name: Check if containerd config exists
+  ansible.builtin.stat:
+    path: /etc/containerd/config.toml
+  register: containerd_config
+
+- name: Backup containerd configuration if it exists
+  ansible.builtin.copy:
+    src: /etc/containerd/config.toml
+    dest: /etc/containerd/config.toml.bak
+    remote_src: true
+  when: containerd_config.stat.exists
 
 - name: Replace containerd configuration with new configuration
   ansible.builtin.copy:
@@ -34,9 +37,11 @@
     content: |
       version = 2
       disabled_plugins = []
-
       [plugins."io.containerd.grpc.v1.cri"]
         sandbox_image = "registry.k8s.io/pause:3.9"
+        [plugins."io.containerd.grpc.v1.cri".cni]
+          bin_dir = "/opt/cni/bin"
+          conf_dir = "/etc/cni/net.d/"
       [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc]
         runtime_type = "io.containerd.runc.v2"
         [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc.options]
@@ -59,11 +64,10 @@
 - name: Start and enable containerd service
   ansible.builtin.service:
     name: containerd
-    state: started
+    state: restarted
     enabled: true
-  notify: Restart containerd
 
-- name: Configure critctl
+- name: Configure crictl
   ansible.builtin.copy:
     dest: /etc/crictl.yaml
     content: |
@@ -73,4 +77,3 @@
       debug: false
       pull-image-on-create: false
     mode: '0644'
-

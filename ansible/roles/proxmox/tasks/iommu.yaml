@@ -1,88 +1,68 @@
 ---
-- name: Gather CPU vendor (if not already set)
-  ansible.builtin.set_fact:
-    cpu_vendor_str: "{{ ansible_facts['ansible_processor'][0] | default('UnknownCPU') }}"
 
-- name: Check CPU vendor for IOMMU command
-  ansible.builtin.set_fact:
-    iommu_cmd: >-
-      {% if 'Intel' in cpu_vendor_str or 'GenuineIntel' in cpu_vendor_str %}
-      intel_iommu=on
-      {% elif 'AMD' in cpu_vendor_str or 'AuthenticAMD' in cpu_vendor_str %}
-      amd_iommu=on
-      {% else %}
-      intel_iommu=on
-      {% endif %}
-
-- name: Check if IOMMU is in GRUB
-  ansible.builtin.command: "grep -E 'intel_iommu=on|amd_iommu=on' {{ grub_file }}"
+- name: Check if IOMMU is already enabled
+  ansible.builtin.shell: "dmesg | grep -E 'IOMMU enabled|AMD-Vi enabled'"
   register: iommu_check
   changed_when: false
   failed_when: false
 
-- name: Enable IOMMU in GRUB
-  ansible.builtin.lineinfile:
-    path: "{{ grub_file }}"
-    regexp: '^GRUB_CMDLINE_LINUX_DEFAULT="(?!.*{{ iommu_cmd }})(.*)"'
-    line: 'GRUB_CMDLINE_LINUX_DEFAULT="quiet {{ iommu_cmd }} iommu=pt"'
-    backrefs: yes
-  when: iommu_check.rc != 0
-  register: grub_updated
+- name: Configure IOMMU
+  block:
+    - name: Enable IOMMU in GRUB
+      ansible.builtin.lineinfile:
+        path: "{{ grub_file }}"
+        regexp: '^GRUB_CMDLINE_LINUX_DEFAULT="(?!.*{{ iommu_cmd }})(.*)"'
+        line: 'GRUB_CMDLINE_LINUX_DEFAULT="quiet {{ iommu_cmd }} iommu=pt"'
+        backrefs: yes
+      when: iommu_check.rc != 0
+      register: grub_updated
 
-- name: Ensure required kernel modules are loaded
-  ansible.builtin.lineinfile:
-    path: "{{ modules_file }}"
-    line: "{{ item }}"
-    create: yes
-  loop:
-    - vfio
-    - vfio_iommu_type1
-    - vfio_pci
-  register: modules_updated
+    - name: Ensure required kernel modules are loaded
+      ansible.builtin.lineinfile:
+        path: "{{ modules_file }}"
+        line: "{{ item }}"
+        create: yes
+      loop: "{{ vfio_modules }}"
+      register: modules_updated
 
-- name: Update GRUB
-  ansible.builtin.command: update-grub
-  when: grub_updated.changed
+    - name: Set VFIO unsafe interrupts
+      ansible.builtin.lineinfile:
+        path: "{{ iommu_file }}"
+        line: "options vfio_iommu_type1 allow_unsafe_interrupts=1"
+        create: yes
+      register: iommu_config_updated
 
-- name: Load kernel modules immediately
-  ansible.builtin.modprobe:
-    name: "{{ item }}"
-    state: present
-  loop:
-    - vfio
-    - vfio_iommu_type1
-    - vfio_pci
-  when: modules_updated.changed
+    - name: Set KVM ignore_msrs
+      ansible.builtin.lineinfile:
+        path: "{{ kvm_file }}"
+        line: "options kvm ignore_msrs=1"
+        create: yes
+      register: kvm_config_updated
 
-- name: Check if reboot is required
-  ansible.builtin.set_fact:
-    reboot_required: "{{ grub_updated.changed or modules_updated.changed }}"
+    - name: Apply changes if needed
+      block:
+        - name: Update GRUB
+          ansible.builtin.command: update-grub
+          when: grub_updated.changed
 
-- name: Reboot if required
-  ansible.builtin.reboot:
-    msg: "Rebooting to enable IOMMU changes"
-    connect_timeout: 5
-    reboot_timeout: 300
-    pre_reboot_delay: 0
-    post_reboot_delay: 30
-  when: reboot_required
+        - name: Load kernel modules immediately
+          ansible.builtin.modprobe:
+            name: "{{ item }}"
+            state: present
+          loop: "{{ vfio_modules }}"
+          when: modules_updated.changed
+          ignore_errors: true
 
-- name: Verify IOMMU is enabled after configuration
-  ansible.builtin.shell: "dmesg | grep -E 'IOMMU enabled|AMD-Vi enabled'"
-  register: iommu_verify
-  changed_when: false
-  failed_when: false
-  when: not reboot_required
+        - name: Update initramfs
+          ansible.builtin.command: update-initramfs -u
+          when: grub_updated.changed or modules_updated.changed or 
+                iommu_config_updated.changed or kvm_config_updated.changed
 
-- name: Display IOMMU status
-  ansible.builtin.debug:
-    msg: |
-      IOMMU Configuration Status:
-      {% if reboot_required %}
-      - System has been rebooted to apply IOMMU changes
-      - Please run this playbook again to verify IOMMU status
-      {% else %}
-      - IOMMU Kernel Status: {{ 'Active' if iommu_verify.rc == 0 else 'Not Active' }}
-      - CPU Vendor String: {{ cpu_vendor_str }}
-      - IOMMU Command Used: {{ iommu_cmd }}
-      {% endif %}
+        - name: Reboot if required
+          ansible.builtin.reboot:
+            msg: "Rebooting to enable IOMMU changes"
+            connect_timeout: 5
+            reboot_timeout: 300
+            post_reboot_delay: 30
+          when: grub_updated.changed or modules_updated.changed or 
+                iommu_config_updated.changed or kvm_config_updated.changed

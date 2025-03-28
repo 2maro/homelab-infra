@@ -1,9 +1,15 @@
-# Kubernetes version and repository settings
-kubernetes_version: "1.29.0"
-kubernetes_repo_url: "https://pkgs.k8s.io/core:/stable:/v1.29/rpm/"
-kubernetes_gpg_key: "https://pkgs.k8s.io/core:/stable:/v1.29/rpm/repodata/repomd.xml.key"
+---
+# Kubernetes version and repository settingn
 
+kubernetes_version: "1.30.*"
+kubernetes_repo_url: "https://pkgs.k8s.io/core:/stable:/v1.30/rpm/"
+kubernetes_gpg_key: "{{ kubernetes_repo_url }}repodata/repomd.xml.key"
+
+pod_network_cidr: "10.244.0.0/16"
+service_network_cidr: "10.96.0.0/12"
+control_plane_endpoint: "{{ groups['prod_control_plane'][0] }}"
 # Containerd settings
+
 containerd_repo_url: "https://download.docker.com/linux/centos/$releasever/$basearch/stable"
 containerd_repo_gpg_key: "https://download.docker.com/linux/centos/gpg"
 containerd_version: "1.7.2"

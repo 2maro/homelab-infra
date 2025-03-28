@@ -1,7 +1,7 @@
 ---
-- name: Disable swap temporarily
-  ansible.builtin.command:
-    cmd: "swapoff -a"
+- name: Disable swap temporarily if enabled
+  ansible.builtin.shell:
+    cmd: "swapon --show | grep -q swap && swapoff -a || true"
   register: swapoff_result
   changed_when: swapoff_result.rc == 0
 
@@ -11,58 +11,38 @@
     regexp: '\s+swap\s+'
     state: absent
 
-- name: Check if br_netfilter module is loaded
-  ansible.builtin.shell:
-    cmd: "lsmod | grep br_netfilter"
-  register: br_netfilter_check
-  changed_when: false
-  failed_when: false
-
-- name: Load br_netfilter kernel module
+- name: Load required kernel modules
   community.general.modprobe:
-    name: br_netfilter
+    name: "{{ item }}"
     state: present
-  when: br_netfilter_check.rc != 0
-
-- name: Get current sysctl values
-  ansible.builtin.command:
-    cmd: sysctl -n {{ item }}
   loop:
-    - net.bridge.bridge-nf-call-iptables
-    - net.ipv4.ip_forward
-  register: sysctl_values
-  changed_when: false
+    - overlay
+    - br_netfilter
 
-- name: Set bridge-nf-call-iptables
+- name: Configure sysctl parameters for Kubernetes
   ansible.posix.sysctl:
-    name: net.bridge.bridge-nf-call-iptables
-    value: '1'
+    name: "{{ item.name }}"
+    value: "{{ item.value }}"
     state: present
-  when: sysctl_values.results[0].stdout != "1"
+    reload: true
+  loop:
+    - { name: 'net.bridge.bridge-nf-call-iptables', value: '1' }
+    - { name: 'net.ipv4.ip_forward', value: '1' }
+    - { name: 'net.bridge.bridge-nf-call-ip6tables', value: '1' }
 
-- name: Set ip_forward
-  ansible.posix.sysctl:
-    name: net.ipv4.ip_forward
-    value: '1'
-    state: present
-  when: sysctl_values.results[1].stdout != "1"
-
-- name: Create an empty file for K8S sysctl parameters
+- name: Ensure sysctl settings persist
   ansible.builtin.copy:
-    content: ""
+    content: |
+      net.bridge.bridge-nf-call-iptables = 1
+      net.ipv4.ip_forward = 1
+      net.bridge.bridge-nf-call-ip6tables = 1
     dest: /etc/sysctl.d/99-kubernetes-cri.conf
-    force: false
     mode: '0644'
 
-- name: Configure sysctl parameters for K8S
-  ansible.builtin.lineinfile:
-    path: /etc/sysctl.d/99-kubernetes-cri.conf
-    line: "{{ item }}"
-    mode: '0644'
-  with_items:
-    - "net.bridge.bridge-nf-call-iptables  = 1"
-    - "net.ipv4.ip_forward                 = 1"
-    - "net.bridge.bridge-nf-call-ip6tables = 1"
+- name: Apply sysctl settings
+  ansible.builtin.command:
+    cmd: sysctl --system
+  changed_when: false
 
 - name: Configure firewall for Control Plane nodes
   ansible.posix.firewalld:
@@ -75,7 +55,7 @@
     - 10250/tcp
     - 10259/tcp
     - 10257/tcp
-  when: inventory_hostname in groups['prod_control_plane'] 
+  when: inventory_hostname in groups['prod_control_plane']
   notify: Reload firewall
 
 - name: Configure firewall for Worker nodes
@@ -86,9 +66,24 @@
   loop:
     - 10250/tcp
     - 30000-32767/tcp
-  when: inventory_hostname in groups['prod_workers'] 
+  when: inventory_hostname in groups['prod_workers']
   notify: Reload firewall
-  
+
+- name: Put SELinux in permissive mode, logging actions that would be blocked.
+  ansible.posix.selinux:
+    policy: targeted
+    state: permissive
+- name: Populate /etc/hosts file using template
+  ansible.builtin.template:
+    src: templates/hosts.j2
+    dest: /etc/hosts
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: Set system hostname
+  ansible.builtin.hostname:
+    name: "{{ inventory_hostname }}"
 
 - name: Force handlers to run now
   meta: flush_handlers

@@ -3,6 +3,7 @@
   ansible.builtin.command:
     cmd: kubeadm reset -f
   register: kubeadm_reset_result
+  changed_when: true
 
 - name: Remove leftover Kubernetes directories
   ansible.builtin.file:
@@ -15,10 +16,11 @@
     - /var/lib/dockershim
     - /var/lib/cni
     - /etc/cni/net.d
+    - /root/.kube
 
 - name: Flush iptables (main, nat, and mangle tables)
   ansible.builtin.shell: |
     iptables -F
     iptables -t nat -F
     iptables -t mangle -F
-  changed_when: false
+  changed_when: true

@@ -21,6 +21,7 @@
   loop:
     - rpcbind      # Start rpcbind first
     - nfs-server   # Then start nfs-server (which includes mountd)
+    - firewalld
   register: nfs_services
   retries: 3
   delay: 5

@@ -1,38 +1,75 @@
----
+# First playbook: Setting up the first master node and preparing certificates
+- name: Check if kubeadm has already initialized
+  ansible.builtin.stat:
+    path: /etc/kubernetes/admin.conf
+  register: k8s_initialized
+  when: inventory_hostname == groups['prod_control_plane'][0]
+
+- name: Count the number of control plane nodes
+  ansible.builtin.set_fact:
+    control_plane_count: "{{ groups['prod_control_plane'] | length | int  }}"
+
+- name: Display number of control plane nodes
+  ansible.builtin.debug:
+    msg: "Number of control plane nodes: {{ control_plane_count }}"
+
 - name: Run kubeadm init on first master
   ansible.builtin.command:
     cmd: >
-      kubeadm init            
-      --control-plane-endpoint={{ control_plane_endpoint | default(groups['prod_control_plane'][0]) }}:6443
+      kubeadm init
+      --control-plane-endpoint={{ control_plane_endpoint }}:6443
       --pod-network-cidr={{ pod_network_cidr }}
+      --service-cidr={{ service_network_cidr }}
       --cri-socket=unix:///run/containerd/containerd.sock
-      --skip-phases=addon/kube-proxy
+      {% if control_plane_count | int > 1 %}--upload-certs{% endif %}
   register: kubeadm_init_result
-  changed_when: false
+  changed_when: true
+  when: 
+    - inventory_hostname == groups['prod_control_plane'][0]
+    - not k8s_initialized.stat.exists | default(false)
+
+- name: Create .kube directory for root user
+  ansible.builtin.file:
+    path: /root/.kube
+    state: directory
+    mode: '0700'
   when: inventory_hostname == groups['prod_control_plane'][0]
 
-- name: Upload certificates and capture key
-  ansible.builtin.command:
-    cmd: kubeadm init phase upload-certs --upload-certs
-  register: cert_key
-  changed_when: false
+- name: Copy admin.conf to root's kube config
+  ansible.builtin.copy:
+    src: /etc/kubernetes/admin.conf
+    dest: /root/.kube/config
+    remote_src: true
+    mode: '0600'
   when: inventory_hostname == groups['prod_control_plane'][0]
 
-- name: Extract certificate key
-  ansible.builtin.set_fact:
-    certificate_key: "{{ cert_key.stdout_lines | select('match', '^[a-f0-9]{64}$') | list | first }}"
-  when: inventory_hostname == groups['prod_control_plane'][0]
+- name: Generate certificates only if multiple master nodes
+  block:
+    - name: Upload certificates and capture key
+      ansible.builtin.command:
+        cmd: kubeadm init phase upload-certs --upload-certs
+      register: cert_key
+      changed_when: false
 
-- name: Create control-plane join command
-  ansible.builtin.command:
-    cmd: kubeadm token create --print-join-command --certificate-key {{ certificate_key }}
-  register: cp_join_cmd
-  changed_when: false
-  when: inventory_hostname == groups['prod_control_plane'][0] and cert_key is succeeded
+    - name: Extract certificate key
+      ansible.builtin.set_fact:
+        certificate_key: "{{ cert_key.stdout_lines | select('match', '^[a-f0-9]{64}$') | list | first }}"
+
+    - name: Create control-plane join command with certificate key
+      ansible.builtin.command:
+        cmd: kubeadm token create --print-join-command --certificate-key {{ certificate_key }}
+      register: cp_join_cmd
+      changed_when: false
+  when: 
+    - inventory_hostname == groups['prod_control_plane'][0]
+    - control_plane_count | int > 1
+    - (kubeadm_init_result.rc is defined) or (k8s_initialized.stat.exists)
 
 - name: Create worker join command
   ansible.builtin.command:
     cmd: kubeadm token create --print-join-command
   register: worker_join_cmd
   changed_when: false
-  when: inventory_hostname == groups['prod_control_plane'][0] and kubeadm_init_result is succeeded
+  when: 
+    - inventory_hostname == groups['prod_control_plane'][0]
+    - (kubeadm_init_result.rc is defined) or (k8s_initialized.stat.exists)

@@ -1,0 +1,44 @@
+---
+
+- name: Set CPU vendor and IOMMU command
+  ansible.builtin.set_fact:
+    cpu_vendor_str: "{{ ansible_processor[0] | default('UnknownCPU') }}"
+    iommu_cmd: >-
+      {% if 'Intel' in ansible_processor[0] or 'GenuineIntel' in ansible_processor[0] %}intel_iommu=on
+      {% elif 'AMD' in ansible_processor[0] or 'AuthenticAMD' in ansible_processor[0] %}amd_iommu=on
+      {% else %}intel_iommu=on{% endif %}
+
+# Configure Proxmox repos
+- name: Configure Proxmox repositories
+  ansible.builtin.import_tasks: repo.yaml
+  when: enable_repo_config | default(true)
+
+# Configure IOMMU
+- name: Configure IOMMU (required for virtualization)
+  ansible.builtin.import_tasks: iommu.yaml
+  when: enable_iommu | default(true)
+
+# Configure GPU passthrough
+- name: Configure GPU passthrough
+  ansible.builtin.import_tasks: gpu_passthrough.yaml
+  when: enable_gpu_passthrough | default(false)
+
+# Install VirtIO drivers
+- name: Install VirtIO drivers
+  ansible.builtin.import_tasks: virtio.yaml
+  when: enable_virtio_drivers | default(true)
+
+# Configure network
+- name: Configure Network
+  ansible.builtin.import_tasks: network.yaml
+  when: enable_network_config | default(false)
+
+# Configure ZFS storage
+- name: Configure ZFS storage
+  ansible.builtin.import_tasks: storage.yaml
+  when: enable_zfs_storage | default(false)
+
+# Create API token
+- name: Create API Token
+  ansible.builtin.import_tasks: api_token.yaml
+  when: enable_api_token | default(false)

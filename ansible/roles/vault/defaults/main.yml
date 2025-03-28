@@ -1,11 +1,5 @@
-
+---
+# Variables
 vault_storage_path: "/opt/vault/data"
-
-
-# Enable TLS
-# vault_tls_cert_file: ""
-# vault_tls_key_file: ""
-
-# setup k8s Secret Management
-k8s_host: ""
-k8s_ca_cert: ""
+vault_ui_enable: true
+vault_listen_address: "0.0.0.0"

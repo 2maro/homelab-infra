@@ -1,9 +1,10 @@
+---
 - name: Restart vault
   ansible.builtin.systemd:
     name: vault
     state: restarted
 
-- name: Restart firewall
+- name: Reload firewall  # Fixed handler name
   ansible.builtin.systemd:
     name: firewalld
     state: restarted

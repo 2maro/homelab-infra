@@ -1,0 +1,12 @@
+---
+- name: Restart containerd service
+  ansible.builtin.service:
+    name: containerd
+    state: restarted
+  tags: restart
+
+- name: Restart kubelet service
+  ansible.builtin.service:
+    name: kubelet
+    state: restarted
+  tags: restart

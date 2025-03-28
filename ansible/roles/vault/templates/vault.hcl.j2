@@ -1,22 +1,14 @@
-ui = vault_ui_enable
+ui = true
+
+api_addr = "http://{{ ansible_default_ipv4.address }}:8200"
+
+storage "file" {
+  path = "{{ vault_storage_path }}"
+}
 
 listener "tcp" {
-    address = "0.0.0.0:8200"
-    tls_disable = true
+  address = "0.0.0.0:8200"
+  tls_disable = 1
 }
 
-## dont write to swap
-disabled_mlock = true
-
-
-auth "kubernetes" {
-  path = "kubernetes"
-
-  # kubernetes API server endpoint
-  kubernetes_host = 
-
-  kubernetes_host = "{{ k8s_host | default('https://kubernetes.default.svc:443') }}"
-  kubernetes_ca_cert = "{{ k8s_ca_cert | default('/etc/vault/k8s/ca.crt') }}"
-
-  Disbale_local_ca_jwt = true
-}
+disable_mlock = true

@@ -1,0 +1,10 @@
+---
+
+- name: Setup for vault
+  ansible.builtin.import_tasks: vault.yaml
+
+- name: Unseal vault
+  ansible.builtin.import_tasks: unseal.yaml
+
+- name: Setup Tls
+  ansible.builtin.import_tasks: tls.yaml

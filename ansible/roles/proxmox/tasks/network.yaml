@@ -1,0 +1,22 @@
+---
+
+- name: Backup existing interfaces file
+  ansible.builtin.copy:
+    src: /etc/network/interfaces
+    dest: "{{ ansible_env.HOME }}/proxmox/network/interfaces.bak" 
+    remote_src: yes
+    force: no
+  changed_when: false
+
+- name: Configure network interfaces file
+  ansible.builtin.template:
+    src: inter.j2
+    dest: /etc/network/interfaces
+    backup: true
+  register: network_config_changed
+
+- name: Restart networking if configuration changed
+  ansible.builtin.shell: |
+    ifdown --force --all && ifup -a
+  when: network_config_changed.changed
+  ignore_errors: true

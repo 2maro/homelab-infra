@@ -1,0 +1,86 @@
+---
+- name: Check if Vault is running
+  ansible.builtin.command: vault status
+  register: vault_status
+  failed_when: false
+  changed_when: false
+
+- name: Fail if Vault is not running
+  ansible.builtin.fail:
+    msg: "Error: Vault is not running. Please start Vault first."
+  when: vault_status.rc != 0
+
+- name: Enable PKI secrets engine
+  ansible.builtin.command: vault secrets enable pki
+  register: pki_enable
+  failed_when: pki_enable.rc != 0 and "path is already in use" not in pki_enable.stderr
+  changed_when: pki_enable.rc == 0
+
+- name: Tune PKI max lease TTL
+  ansible.builtin.command: vault secrets tune -max-lease-ttl=87600h pki
+  register: pki_tune
+  changed_when: pki_tune.rc == 0
+
+- name: Enable PKI intermediate secrets engine
+  ansible.builtin.command: vault secrets enable -path=pki_int pki
+  register: pki_int_enable
+  failed_when: pki_int_enable.rc != 0 and "path is already in use" not in pki_int_enable.stderr
+  changed_when: pki_int_enable.rc == 0
+
+- name: Tune PKI intermediate max lease TTL
+  ansible.builtin.command: vault secrets tune -max-lease-ttl=43800h pki_int
+  register: pki_int_tune
+  changed_when: pki_int_tune.rc == 0
+
+- name: Generate root certificate
+  ansible.builtin.command: > 
+    vault write -format=json pki/root/generate/internal 
+    common_name="Home Lab Root CA" ttl=87600h
+  register: root_cert
+  changed_when: root_cert.rc == 0
+
+- name: Generate intermediate CSR
+  ansible.builtin.command: >
+    vault write -format=json pki_int/intermediate/generate/internal
+    common_name="Home Lab Intermediate CA"
+  register: intermediate_csr
+  changed_when: intermediate_csr.rc == 0
+
+- name: Sign intermediate certificate with root CA
+  ansible.builtin.command: 
+    cmd: vault write -format=json pki/root/sign-intermediate csr=- format=pem_bundle ttl=43800h
+    stdin: "{{ (intermediate_csr.stdout | from_json).data.csr }}"
+  register: signed_cert
+  changed_when: signed_cert.rc == 0
+
+- name: Import signed certificate back into Vault
+  ansible.builtin.command: 
+    cmd: vault write -format=json pki_int/intermediate/set-signed certificate=-
+    stdin: "{{ (signed_cert.stdout | from_json).data.certificate }}"
+  register: import_cert
+  changed_when: import_cert.rc == 0
+
+- name: Create role for issuing certificates
+  ansible.builtin.command: >
+    vault write pki_int/roles/homelab
+    allowed_domains="home.lab"
+    allow_subdomains=true
+    max_ttl="720h"
+  register: create_role
+  changed_when: create_role.rc == 0
+
+- name: Configure certificate URLs
+  ansible.builtin.command: >
+    vault write pki_int/config/urls
+    issuing_certificates="http://vault.home.lab:8200/v1/pki_int/ca"
+    crl_distribution_points="http://vault.home.lab:8200/v1/pki_int/crl"
+  register: config_urls
+  changed_when: config_urls.rc == 0
+
+- name: Display API retrieval instructions
+  ansible.builtin.debug:
+    msg:
+      - "Vault PKI setup complete. You can retrieve certificates via the Vault API:"
+      - "- Root CA: GET http://vault.home.lab:8200/v1/pki/ca/pem"
+      - "- Intermediate CA: GET http://vault.home.lab:8200/v1/pki_int/ca/pem"
+      - "- Issue new certificate: POST http://vault.home.lab:8200/v1/pki_int/issue/homelab"

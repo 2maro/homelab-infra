@@ -1,0 +1,47 @@
+---
+
+- name: Initialize Vault (with 5 key shares, 3 required)
+  ansible.builtin.command: vault operator init -format=json -key-shares=5 -key-threshold=3
+  register: vault_init
+  changed_when: vault_init.rc == 0
+  failed_when: vault_init.rc != 0 and "already initialized" not in vault_init.stderr
+
+- name: Check if Vault_init contains valid json
+  ansible.builtin.debug:
+    msg: "Vault init stdout: {{ vault_init.stdout | default('empty') }}"
+
+- name: Store unseal keys and root token securely
+  ansible.builtin.copy:
+    content: "{{ vault_init.stdout }}"
+    dest: "/root/vault-keys.json"
+    mode: '0600'
+
+- name: Parse unseal keys
+  ansible.builtin.set_fact:
+    vault_json: "{{ vault_init.stdout | from_json }}"
+    unseal_keys: "{{ (vault_init.stdout | from_json).unseal_keys_b64 }}"
+    root_token: "{{ (vault_init.stdout | from_json).root_token }}"
+
+- name: Unseal Vault with first three keys
+  ansible.builtin.command: vault operator unseal "{{ item }}"
+  register: vault_init
+  with_items: "{{ unseal_keys[:3] }}"
+  register: unseal_result
+  changed_when: "'Sealed: false' in unseal_result.stdout"
+
+- name: Authenticate to Vault with root token
+  ansible.builtin.command: vault login "{{ root_token }}"
+
+- name: Save root token for later use
+  ansible.builtin.copy:
+    content: "{{ root_token }}"
+    dest: "/root/.vault-token"
+    mode: '0600'
+
+- name: Display key information
+  ansible.builtin.debug:
+    msg:
+      - "Vault has been initialized with 5 key shares (3 required to unseal)"
+      - "Unseal keys and root token are stored in /root/vault-keys.json"
+      - "This file contains SENSITIVE information - secure or delete after setup"
+      - "For production, distribute key shares to different individuals"

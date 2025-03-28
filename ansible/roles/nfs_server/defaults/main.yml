@@ -7,10 +7,10 @@ nfs_directories:
 export_rules:
   - path: "/srv/nfs/monitoring"
     clients: "*"
-    options: "rw,sync,no_subtree_check,no_root_squash,fsid=0"
+    options: "rw,sync,no_subtree_check,no_root_squash,fsid=1"
   - path: "/srv/nfs/others"
     clients: "*"
-    options: "rw,sync,no_subtree_check,no_root_squash,fsid=1"
+    options: "rw,sync,no_subtree_check,no_root_squash,fsid=2"
   - path: "/srv/nfs/k8s"
     clients: "*"
-    options: "rw,sync,no_subtree_check,no_root_squash,fsid=2"
+    options: "rw,sync,no_subtree_check,no_root_squash,fsid=3"

@@ -1,0 +1,73 @@
+---
+
+- name: Detect GPU
+  block:
+    - name: Get GPU info
+      ansible.builtin.shell: "lspci -nn | grep -E 'VGA|3D|Display'"
+      register: gpu_info
+      changed_when: false
+      failed_when: gpu_info.rc != 0
+
+    - name: Fail if no GPU is detected
+      ansible.builtin.fail:
+        msg: "No GPU (VGA/3D/Display) device found; cannot proceed with passthrough."
+      when: gpu_info.stdout_lines | length == 0
+
+    - name: Parse GPU details
+      ansible.builtin.set_fact:
+        gpu_pci_address: "{{ gpu_info.stdout | regex_search('([0-9a-f.:]+).*\\[([0-9a-f]{4}:[0-9a-f]{4})\\]', '\\1') | first }}"
+        gpu_vendor_id: "{{ gpu_info.stdout | regex_search('([0-9a-f.:]+).*\\[([0-9a-f]{4}:[0-9a-f]{4})\\]', '\\2') | first }}"
+
+    - name: Validate GPU parsing
+      ansible.builtin.fail:
+        msg: "Failed to parse GPU information. Raw output: {{ gpu_info.stdout }}"
+      when: gpu_pci_address is not defined or gpu_pci_address == '' or
+            gpu_vendor_id is not defined or gpu_vendor_id == ''
+
+- name: Configure GPU passthrough
+  block:
+    - name: Update GRUB for GPU passthrough
+      ansible.builtin.lineinfile:
+        path: "{{ grub_file }}"
+        regexp: '^GRUB_CMDLINE_LINUX_DEFAULT='
+        line: >-
+          GRUB_CMDLINE_LINUX_DEFAULT="quiet {{ iommu_cmd }} iommu=pt pcie_acs_override=downstream,multifunction
+          nofb nomodeset video=vesafb:off,efifb:off"
+      register: grub_updated
+      
+    - name: Write VFIO config for the detected GPU
+      ansible.builtin.copy:
+        dest: "{{ vfio_file }}"
+        content: |
+          options vfio-pci ids={{ gpu_vendor_id }} disable_vga=1
+      register: vfio_config_updated
+
+    - name: Blacklist GPU drivers if NVIDIA
+      ansible.builtin.blockinfile:
+        path: "{{ blacklist_file }}"
+        block: |
+          blacklist nouveau
+          blacklist nvidia
+          blacklist nvidia_uvm
+          blacklist nvidia_modeset
+          blacklist nvidia_drm
+      when: "'10de' in gpu_vendor_id.lower()"  # NVIDIA Vendor ID
+      register: blacklist_updated
+
+    - name: Apply changes
+      block:
+        - name: Update GRUB
+          ansible.builtin.command: update-grub
+          when: grub_updated.changed
+
+        - name: Update initramfs
+          ansible.builtin.command: update-initramfs -u
+          when: grub_updated.changed or vfio_config_updated.changed or blacklist_updated.changed
+
+        - name: Reboot to apply changes
+          ansible.builtin.reboot:
+            msg: "Rebooting to apply GPU passthrough configurations."
+            connect_timeout: 5
+            reboot_timeout: 300
+            post_reboot_delay: 30
+          when: grub_updated.changed or vfio_config_updated.changed or blacklist_updated.changed

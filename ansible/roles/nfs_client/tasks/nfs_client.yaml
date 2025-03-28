@@ -4,6 +4,7 @@
     name:
       - nfs-utils
       - nfs4-acl-tools
+    state: present
 
 - name: Create NFS mount dir's
   ansible.builtin.file:
@@ -17,6 +18,7 @@
     cmd: "showmount -e {{ item.nfs_server }}"
   loop: "{{ nfs_client_mounts }}"
   changed_when: false
+  failed_when: false
 
 - name: Mount NFS shares
   ansible.builtin.mount:
@@ -25,6 +27,7 @@
     fstype: nfs
     opts: "{{ item.mount_options | default('defaults') }}"
     state: mounted
+    boot: yes
   loop: "{{ nfs_client_mounts }}"
   register: mount_result
   retries: 3

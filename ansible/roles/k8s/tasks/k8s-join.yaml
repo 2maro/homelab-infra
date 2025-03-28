@@ -1,17 +1,28 @@
 ---
+- name: Check if kubelet is already configured
+  ansible.builtin.stat:
+    path: /etc/kubernetes/kubelet.conf
+  register: kubelet_configured
+
 - name: Join additional master nodes
   ansible.builtin.command:
     cmd: "{{ hostvars[groups['prod_control_plane'][0]]['cp_join_cmd'].stdout }} \
           --control-plane \
           --certificate-key {{ hostvars[groups['prod_control_plane'][0]]['certificate_key'] }} \
           --apiserver-advertise-address={{ ansible_host }}"
-  changed_when: false
+  changed_when: true
   when:
     - inventory_hostname in groups['prod_control_plane']
     - inventory_hostname != groups['prod_control_plane'][0]
+    - hostvars[groups['prod_control_plane'][0]]['cp_join_cmd'] is defined
+    - hostvars[groups['prod_control_plane'][0]]['certificate_key'] is defined
+    - not kubelet_configured.stat.exists
 
 - name: Join worker nodes to cluster
   ansible.builtin.command:
     cmd: "{{ hostvars[groups['prod_control_plane'][0]]['worker_join_cmd'].stdout }}"
-  changed_when: false
-  when: inventory_hostname in groups['prod_workers']
+  changed_when: true
+  when: 
+    - inventory_hostname in groups['prod_workers']
+    - hostvars[groups['prod_control_plane'][0]]['worker_join_cmd'] is defined
+    - not kubelet_configured.stat.exists

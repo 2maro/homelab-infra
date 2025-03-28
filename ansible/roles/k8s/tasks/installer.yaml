@@ -1,10 +1,4 @@
 ---
-- name: Create a Kubernetes repo file
-  ansible.builtin.file:
-    path: "/etc/yum.repos.d/kubernetes.repo"
-    state: touch
-    mode: "0644"
-
 - name: Write repository information in Kubernetes repo file
   ansible.builtin.blockinfile:
     path: "/etc/yum.repos.d/kubernetes.repo"
@@ -19,6 +13,10 @@
     create: true
     mode: "0644"
 
+- name: Refresh pacakage cache
+  ansible.builtin.dnf:
+    update_cache: true
+
 - name: Install Kubernetes packages
   ansible.builtin.package:
     name:
@@ -30,5 +28,5 @@
 - name: Enable kubelet service
   ansible.builtin.systemd:
     name: kubelet
+    state: started
     enabled: true
-  notify: Restart kubelet
